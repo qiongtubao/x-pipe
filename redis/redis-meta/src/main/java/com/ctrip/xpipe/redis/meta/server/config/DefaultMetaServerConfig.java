@@ -11,6 +11,7 @@ import com.ctrip.xpipe.config.DefaultPropertyConfig;
 import com.ctrip.xpipe.redis.core.config.AbstractCoreConfig;
 import com.ctrip.xpipe.redis.core.meta.DcInfo;
 import com.ctrip.xpipe.utils.IpUtils;
+import com.google.common.collect.Maps;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +31,7 @@ public class DefaultMetaServerConfig extends AbstractCoreConfig implements MetaS
 	public static String KEY_CLUSTER_SERVERS_CHACK_MILLI = "cluster.servers.check.milli";
 	public static String KEY_WAITFOR_OFFSET_MILLI = "dcchange.waitfor.offset.milli";
 	public static String KEY_DC_INFOS = "dcinfos";
+	public static String KEY_VALIDATE_DOMAIN = "metaserver.validate.domain";
 	
 	
 	public static String META_SRRVER_PROPERTIES_PATH = String.format("/opt/data/%s", FoundationService.DEFAULT.getAppId());
@@ -38,6 +40,8 @@ public class DefaultMetaServerConfig extends AbstractCoreConfig implements MetaS
 	public static String KEY_SERVER_ID = "metaserver.id";
 	public static String KEY_SERVER_IP = "server.ip";
 	public static String KEY_SERVER_PORT = "server.port";
+
+	private static final String KEY_KEEPER_INFO_CHECK_INTERVAL = "meta.keeper.info.check.interval";
 	
 	private String defaultConsoleAddress = System.getProperty("consoleAddress", "http://localhost:8080");
 	
@@ -45,6 +49,8 @@ public class DefaultMetaServerConfig extends AbstractCoreConfig implements MetaS
 	private int defaultServerPort = Integer.parseInt(System.getProperty(KEY_SERVER_ID, "8080"));
 	
 	private Config serverConfig;
+
+	private Map<String, DcInfo> dcInfos = Maps.newConcurrentMap();
 
 	public DefaultMetaServerConfig(){
 
@@ -98,12 +104,19 @@ public class DefaultMetaServerConfig extends AbstractCoreConfig implements MetaS
 
 	@Override
 	public Map<String, DcInfo> getDcInofs() {
-		
+		if(dcInfos.isEmpty()) {
+			dcInfos = getDcInofMapping();
+		}
+		return dcInfos;
+	}
+
+	private Map<String, DcInfo> getDcInofMapping() {
+
 		String dcInfoStr = getProperty(KEY_DC_INFOS, "{}");
 		Map<String, DcInfo> dcInfos = JsonCodec.INSTANCE.decode(dcInfoStr, new GenericTypeReference<Map<String, DcInfo>>() {
 		});
-		
-		Map<String, DcInfo> result = new HashMap<>();
+
+		Map<String, DcInfo> result = Maps.newConcurrentMap();
 		for(Entry<String, DcInfo> entry : dcInfos.entrySet()){
 			result.put(entry.getKey().toLowerCase(), entry.getValue());
 		}
@@ -115,6 +128,16 @@ public class DefaultMetaServerConfig extends AbstractCoreConfig implements MetaS
 	@Override
 	public int getWaitforOffsetMilli() {
 		return getIntProperty(KEY_WAITFOR_OFFSET_MILLI, 2000);
+	}
+
+	@Override
+	public boolean validateDomain() {
+		return getBooleanProperty(KEY_VALIDATE_DOMAIN, true);
+	}
+
+	@Override
+	public int getKeeperInfoCheckInterval() {
+		return getIntProperty(KEY_KEEPER_INFO_CHECK_INTERVAL, 30 * 1000);
 	}
 
 
@@ -136,6 +159,12 @@ public class DefaultMetaServerConfig extends AbstractCoreConfig implements MetaS
 	
 	public void setDefaultServerPort(int defaultServerPort) {
 		this.defaultServerPort = defaultServerPort;
+	}
+
+	@Override
+	public void onChange(String key, String oldValue, String newValue) {
+		super.onChange(key, oldValue, newValue);
+		dcInfos = getDcInofMapping();
 	}
 
 }

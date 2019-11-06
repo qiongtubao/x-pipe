@@ -1,13 +1,18 @@
 package com.ctrip.xpipe.redis.console.service.impl;
 
+import com.ctrip.xpipe.endpoint.HostPort;
+import com.ctrip.xpipe.redis.console.controller.api.RetMessage;
 import com.ctrip.xpipe.redis.console.dao.ProxyDao;
 import com.ctrip.xpipe.redis.console.model.*;
+import com.ctrip.xpipe.redis.console.model.consoleportal.ProxyChainModel;
+import com.ctrip.xpipe.redis.console.model.consoleportal.ProxyInfoModel;
 import com.ctrip.xpipe.redis.console.proxy.*;
 import com.ctrip.xpipe.redis.console.service.DcService;
 import com.ctrip.xpipe.redis.console.service.ProxyService;
 import com.ctrip.xpipe.redis.console.service.ShardService;
+import com.ctrip.xpipe.redis.core.service.AbstractService;
+import com.ctrip.xpipe.utils.ExceptionUtils;
 import com.ctrip.xpipe.utils.StringUtil;
-import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,7 +27,7 @@ import java.util.stream.Collectors;
  * Jun 19, 2018
  */
 @Service
-public class ProxyServiceImpl implements ProxyService {
+public class ProxyServiceImpl extends AbstractService implements ProxyService {
 
     @Autowired
     private ProxyDao proxyDao;
@@ -130,6 +135,55 @@ public class ProxyServiceImpl implements ProxyService {
         for(ProxyMonitorCollector collector : collectors) {
             if(dcName.equalsIgnoreCase(collector.getProxyInfo().getDcName())) {
                 result.add(new ProxyPingStatsModel(collector.getProxyInfo(), collector.getPingStatsResults()));
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public List<ProxyInfoModel> getAllProxyInfo() {
+        List<ProxyInfoModel> result = Lists.newArrayList();
+        List<ProxyMonitorCollector> proxies = proxyMonitorCollectorManager.getProxyMonitorResults();
+        for(ProxyMonitorCollector proxy : proxies) {
+            ProxyModel model = proxy.getProxyInfo();
+            int chainNum = getChainNumber(proxy);
+            result.add(new ProxyInfoModel(model.getHostPort().getHost(), model.getHostPort().getPort(), model.getDcName(), chainNum));
+        }
+        return result;
+    }
+
+    @Override
+    public RetMessage deleteProxyChain(List<HostPort> proxies) {
+        RetMessage message = null;
+        for(HostPort hostPort : proxies) {
+            message = notifyProxyNode(hostPort);
+            if(message.getState() == RetMessage.SUCCESS_STATE) {
+                return message;
+            }
+        }
+        message = message == null ? RetMessage.createFailMessage("no host port received") : message;
+        return message;
+    }
+
+    private RetMessage notifyProxyNode(HostPort hostPort) {
+        String message = null;
+        try {
+            restTemplate.delete(String.format("http://%s:8080/api/tunnel/local/port/%d", hostPort.getHost(), hostPort.getPort()));
+        } catch (Exception e) {
+            message = ExceptionUtils.getCause(e).getMessage();
+            logger.error("[deleteProxyChain]", e);
+            return RetMessage.createFailMessage(message);
+        }
+        return RetMessage.createSuccessMessage();
+    }
+
+
+    private int getChainNumber(ProxyMonitorCollector proxy) {
+        List<TunnelInfo> tunnels = proxy.getTunnelInfos();
+        int result = 0;
+        for(TunnelInfo info : tunnels) {
+            if(analyzer.getProxyChain(info.getTunnelId()) != null) {
+                result ++;
             }
         }
         return result;

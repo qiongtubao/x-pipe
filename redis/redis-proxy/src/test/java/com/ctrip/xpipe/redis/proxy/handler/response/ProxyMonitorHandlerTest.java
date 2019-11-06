@@ -1,17 +1,16 @@
 package com.ctrip.xpipe.redis.proxy.handler.response;
 
+import com.ctrip.xpipe.endpoint.HostPort;
 import com.ctrip.xpipe.netty.ByteBufUtils;
 import com.ctrip.xpipe.redis.core.protocal.protocal.ArrayParser;
-import com.ctrip.xpipe.redis.core.proxy.monitor.PingStatsResult;
-import com.ctrip.xpipe.redis.core.proxy.monitor.SocketStatsResult;
-import com.ctrip.xpipe.redis.core.proxy.monitor.TunnelSocketStatsResult;
-import com.ctrip.xpipe.redis.core.proxy.monitor.TunnelStatsResult;
+import com.ctrip.xpipe.redis.core.proxy.monitor.*;
 import com.ctrip.xpipe.redis.proxy.TestProxyConfig;
 import com.ctrip.xpipe.redis.proxy.Tunnel;
 import com.ctrip.xpipe.redis.proxy.integrate.AbstractProxyIntegrationTest;
 import com.ctrip.xpipe.redis.proxy.model.TunnelIdentity;
 import com.ctrip.xpipe.redis.proxy.monitor.SessionMonitor;
 import com.ctrip.xpipe.redis.proxy.monitor.TunnelMonitor;
+import com.ctrip.xpipe.redis.proxy.monitor.session.SessionStats;
 import com.ctrip.xpipe.redis.proxy.monitor.stats.PingStats;
 import com.ctrip.xpipe.redis.proxy.monitor.stats.PingStatsManager;
 import com.ctrip.xpipe.redis.proxy.monitor.stats.SocketStats;
@@ -68,6 +67,11 @@ public class ProxyMonitorHandlerTest extends AbstractProxyIntegrationTest {
         SocketStats socketStats2 = mock(SocketStats.class);
         when(socketStats2.getSocketStatsResult()).thenReturn(new SocketStatsResult(Lists.newArrayList(template3, template4)));
         when(backend.getSocketStats()).thenReturn(socketStats2);
+
+        SessionStats frontendSessionStats = mock(SessionStats.class);
+        SessionStats backendSessionStats = mock(SessionStats.class);
+        when(frontend.getSessionStats()).thenReturn(frontendSessionStats);
+        when(backend.getSessionStats()).thenReturn(backendSessionStats);
 
         when(tunnelMonitor.getFrontendSessionMonitor()).thenReturn(frontend);
         when(tunnelMonitor.getBackendSessionMonitor()).thenReturn(backend);
@@ -142,9 +146,13 @@ public class ProxyMonitorHandlerTest extends AbstractProxyIntegrationTest {
     @Test
     public void testTunnelStatsResponser() throws Exception {
         TunnelStats tunnelStats = mock(TunnelStats.class);
+
+        HostPort frontend = localHostport(randomPort());
+        HostPort backend = localHostport(randomPort());
+
         Tunnel tunnel = tunnelManager.tunnels().get(0);
         TunnelStatsResult tunnelStatsResult = new TunnelStatsResult(tunnel.identity().toString(),
-                new TunnelEstablished(null).name(), System.currentTimeMillis(), System.currentTimeMillis() + 10);
+                new TunnelEstablished(null).name(), System.currentTimeMillis(), System.currentTimeMillis() + 10, frontend, backend);
         when(tunnelStats.getTunnelStatsResult()).thenReturn(tunnelStatsResult);
         when(tunnelMonitor.getTunnelStats()).thenReturn(tunnelStats);
 
@@ -161,7 +169,35 @@ public class ProxyMonitorHandlerTest extends AbstractProxyIntegrationTest {
             logger.info("{}", other.getTunnelState());
             logger.info("{}", other.getProtocolRecvTime());
             logger.info("{}", other.getProtocolSndTime());
+            logger.info("{}", other.getFrontend());
+            logger.info("{}", other.getBackend());
         }
+    }
+
+    @Test
+    public void testTrafficStatsResponser() throws Exception {
+
+        SessionTrafficResult frontend = new SessionTrafficResult(System.currentTimeMillis(), 100, 200, 10, 20);
+        SessionTrafficResult backend = new SessionTrafficResult(System.currentTimeMillis(), 1000, 2000, 100, 200);
+
+        Tunnel tunnel = tunnelManager.tunnels().get(0);
+        TunnelTrafficResult trafficResult = new TunnelTrafficResult(tunnel.identity().toString(), frontend, backend);
+        when(tunnel.getTunnelMonitor().getFrontendSessionMonitor().getSessionStats().getInputBytes()).thenReturn(frontend.getInputBytes());
+        when(tunnel.getTunnelMonitor().getFrontendSessionMonitor().getSessionStats().getOutputBytes()).thenReturn(frontend.getOutputBytes());
+        when(tunnel.getTunnelMonitor().getFrontendSessionMonitor().getSessionStats().lastUpdateTime()).thenReturn(frontend.getTimestamp());
+
+        when(tunnel.getTunnelMonitor().getBackendSessionMonitor().getSessionStats().getInputBytes()).thenReturn(backend.getInputBytes());
+        when(tunnel.getTunnelMonitor().getBackendSessionMonitor().getSessionStats().getOutputBytes()).thenReturn(backend.getOutputBytes());
+        when(tunnel.getTunnelMonitor().getBackendSessionMonitor().getSessionStats().lastUpdateTime()).thenReturn(backend.getTimestamp());
+
+
+        AtomicReference<ByteBuf> result = new AtomicReference<>();
+        Channel channel = getWriteBackChannel(result);
+        handler.doHandle(channel, new String[]{"TrafficStats"});
+        waitConditionUntilTimeOut(()->result.get() != null, 1000);
+//        logger.info("{}", ByteBufUtils.readToString(result.get()));
+        TunnelTrafficResult result1 = TunnelTrafficResult.parse(new ArrayParser().read(result.get()).getPayload()[0]);
+        logger.info("{}", result1);
     }
 
     private Channel getWriteBackChannel(AtomicReference<ByteBuf> result) {

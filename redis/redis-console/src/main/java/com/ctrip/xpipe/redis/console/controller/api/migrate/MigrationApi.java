@@ -2,7 +2,9 @@ package com.ctrip.xpipe.redis.console.controller.api.migrate;
 
 import com.ctrip.xpipe.api.migration.DcMapper;
 import com.ctrip.xpipe.redis.console.controller.AbstractConsoleController;
+import com.ctrip.xpipe.redis.console.controller.api.RetMessage;
 import com.ctrip.xpipe.redis.console.controller.api.migrate.meta.*;
+import com.ctrip.xpipe.redis.console.healthcheck.nonredis.migration.MigrationSystemAvailableChecker;
 import com.ctrip.xpipe.redis.console.migration.model.MigrationCluster;
 import com.ctrip.xpipe.redis.console.migration.model.MigrationEvent;
 import com.ctrip.xpipe.redis.console.migration.status.MigrationStatus;
@@ -10,6 +12,7 @@ import com.ctrip.xpipe.redis.console.service.migration.MigrationService;
 import com.ctrip.xpipe.redis.console.service.migration.exception.ClusterActiveDcNotRequest;
 import com.ctrip.xpipe.redis.console.service.migration.exception.ClusterMigratingNow;
 import com.ctrip.xpipe.redis.console.service.migration.exception.ClusterNotFoundException;
+import com.ctrip.xpipe.redis.console.service.migration.exception.MigrationSystemNotHealthyException;
 import com.ctrip.xpipe.redis.console.service.migration.impl.MigrationRequest;
 import com.ctrip.xpipe.redis.console.service.migration.impl.TryMigrateResult;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,6 +61,9 @@ public class MigrationApi extends AbstractConsoleController {
                 logger.error("[checkAndPrepare]" + clusterName, e);
             } catch (ClusterMigratingNow e) {
                 failClusters.add(CheckPrepareClusterResponse.createFailResponse(clusterName, fromIdc, CHECK_FAIL_STATUS.ALREADY_MIGRATING, String.valueOf(e.getEventId())));
+                logger.error("[checkAndPrepare]" + clusterName, e);
+            } catch (MigrationSystemNotHealthyException e) {
+                failClusters.add(CheckPrepareClusterResponse.createFailResponse(clusterName, fromIdc, CHECK_FAIL_STATUS.MIGRATION_SYSTEM_UNHEALTHY, String.valueOf(e.getMessage())));
                 logger.error("[checkAndPrepare]" + clusterName, e);
             } catch (Exception e) {
                 logger.error("[checkAndPrepare]" + clusterName, e);
@@ -159,6 +165,17 @@ public class MigrationApi extends AbstractConsoleController {
 
         mapResponseIdc(rollbackResponse.getResults());
         return rollbackResponse;
+    }
+
+    @RequestMapping(value = "/migration/system/health/status", method = RequestMethod.GET)
+    public RetMessage getMigrationSystemHealthStatus() {
+        logger.info("[getMigrationSystemHealthStatus]");
+        try {
+            return migrationService.getMigrationSystemHealth();
+        } catch (Exception e) {
+            logger.error("[getMigrationSystemHealthStatus]", e);
+            return RetMessage.createFailMessage(e.getMessage());
+        }
     }
 
 
