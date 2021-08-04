@@ -66,6 +66,7 @@ public class LeakyBucketBasedMasterReplicationListener implements RedisMasterRep
 
     @Override
     public boolean canSendPsync() {
+        //判断是否是keeper
         if (redisMasterReplication.redisMaster().isKeeper()
                 && (redisKeeperServer.getRedisKeeperServerState() instanceof RedisKeeperServerStateActive)) {
 

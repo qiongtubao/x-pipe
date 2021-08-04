@@ -30,8 +30,15 @@ public class StringInOutPayload extends AbstractInOutPayload{
 		this.charset = charset;
 		
 	}
-	
 
+	/**
+	 *
+	 * @param byteBuf
+	 * @return
+	 * @throws IOException
+	 *
+	 * 	只是用来读数据 而不能写入数据
+	 */
 	@Override
 	protected int doIn(ByteBuf byteBuf) throws IOException {
 		throw new UnsupportedOperationException("unsupported in");

@@ -50,6 +50,9 @@ public class InMemoryPsync extends AbstractPsync{
 
 	@Override
 	protected BulkStringParser createRdbReader() {
+		/**
+		 *  把rdb数据保存到内存里
+		 */
 		return new BulkStringParser(rdb);
 	}
 	

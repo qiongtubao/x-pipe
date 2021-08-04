@@ -15,12 +15,14 @@ import java.util.concurrent.atomic.AtomicLong;
  * 2016年3月29日 下午4:31:30
  */
 public abstract class AbstractInOutPayload implements InOutPayload{
-
+	//入长度
 	private AtomicLong inSize = new AtomicLong();
+	//出长度
 	private AtomicLong outSize = new AtomicLong();
 	
 	@Override
 	public void startInput() {
+		//重制入长度
 		inSize.set(0);
 		doStartInput();
 		
@@ -37,14 +39,21 @@ public abstract class AbstractInOutPayload implements InOutPayload{
 	
 	@Override
 	public int in(ByteBuf byteBuf) throws IOException {
-		
+		//累加入的长度
 		int size = doIn(byteBuf);
 		inSize.addAndGet(size);
 		return size;
 	}
 
 	protected abstract int doIn(ByteBuf byteBuf) throws IOException;
-	
+
+	/**
+	 *
+	 * @throws IOException
+	 *  停止写入
+	 *  DirectByteBufInStringOutPayload（byteBuf -> String)
+	 *
+	 */
 	@Override
 	public void endInput() throws IOException {
 		doEndInput();
@@ -63,6 +72,7 @@ public abstract class AbstractInOutPayload implements InOutPayload{
 	@Override
 	public void startOutput() throws IOException {
 		doStartOutput();
+		//重制出的游标
 		outSize.set(0);
 	}
 
@@ -76,6 +86,7 @@ public abstract class AbstractInOutPayload implements InOutPayload{
 
 	@Override
 	public long out(WritableByteChannel writableByteChannel) throws IOException {
+		//累加出的长度
 		long size = doOut(writableByteChannel);
 		outSize.addAndGet(size);
 		return size;

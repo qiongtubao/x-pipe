@@ -20,6 +20,9 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * DefaultReplicationStore 复制存储的store
+ */
 // TODO make methods correctly sequenced
 public class DefaultReplicationStore extends AbstractStore implements ReplicationStore {
 
@@ -99,15 +102,19 @@ public class DefaultReplicationStore extends AbstractStore implements Replicatio
 		}
 	}
 
+	//创建rdbStore
 	@Override
 	public RdbStore beginRdb(String replId, long rdbOffset, EofType eofType) throws IOException {
+
 
 		makeSureOpen();
 		
 		logger.info("Begin RDB replId:{}, rdbOffset:{}, eof:{}", replId, rdbOffset, eofType);
+		//创建文件夹
 		baseDir.mkdirs();
-
+		//创建rdb文件
 		String rdbFile = newRdbFileName();
+		//文件名前缀
 		String cmdFilePrefix = "cmd_" + UUID.randomUUID().toString() + "_";
 		ReplicationStoreMeta newMeta = metaStore.rdbBegun(replId, rdbOffset + 1, rdbFile, eofType,
 				cmdFilePrefix);

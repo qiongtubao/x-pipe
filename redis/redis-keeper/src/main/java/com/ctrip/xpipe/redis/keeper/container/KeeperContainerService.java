@@ -50,6 +50,7 @@ public class KeeperContainerService {
 
     public RedisKeeperServer add(KeeperTransMeta keeperTransMeta) {
         KeeperMeta keeperMeta = keeperTransMeta.getKeeperMeta();
+        //补充一下keeperMeta 的shard 和cluster信息
         enrichKeeperMetaFromKeeperTransMeta(keeperMeta, keeperTransMeta);
 
         String keeperServerKey = assembleKeeperServerKey(keeperTransMeta);
@@ -64,7 +65,9 @@ public class KeeperContainerService {
                                                 .getPort())), null);
                     }
                     try {
+                        //添加keeper
                         RedisKeeperServer redisKeeperServer = doAdd(keeperTransMeta, keeperMeta);
+                        //keeperServerKey 和 redisKeeperServer 绑定
                         cacheKeeper(keeperServerKey, redisKeeperServer);
                         return redisKeeperServer;
                     } catch (Throwable ex) {
@@ -84,12 +87,14 @@ public class KeeperContainerService {
     }
 
     public RedisKeeperServer addOrStart(KeeperTransMeta keeperTransMeta) {
+        //<cluster>-<shardId>
         String keeperServerKey = assembleKeeperServerKey(keeperTransMeta);
         RedisKeeperServer keeperServer = redisKeeperServers.get(keeperServerKey);
+        //没有就添加
         if (keeperServer == null) {
             return add(keeperTransMeta);
         }
-
+        //启动
         start(keeperTransMeta.getClusterId(), keeperTransMeta.getShardId());
 
         return keeperServer;
@@ -184,7 +189,9 @@ public class KeeperContainerService {
     }
 
     private void cacheKeeper(String keeperServerKey, RedisKeeperServer redisKeeperServer) {
+        //redisKeeperServers 绑定keeper
         redisKeeperServers.put(keeperServerKey, redisKeeperServer);
+        //添加启动的port
         runningPorts.add(redisKeeperServer.getListeningPort());
     }
 
@@ -198,7 +205,7 @@ public class KeeperContainerService {
     private RedisKeeperServer doAdd(KeeperTransMeta keeperTransMeta, KeeperMeta keeperMeta) throws Exception {
 
         File baseDir = getReplicationStoreDir(keeperMeta);
-
+        //创建keeper
         return createRedisKeeperServer(keeperMeta, baseDir);
     }
 
@@ -214,7 +221,7 @@ public class KeeperContainerService {
 
         RedisKeeperServer redisKeeperServer = new DefaultRedisKeeperServer(keeper, keeperConfig,
                 baseDir, leaderElectorManager, keepersMonitorManager, resourceManager);
-
+        // 注册keeper   启动redisKeeperServer
         register(redisKeeperServer);
         return redisKeeperServer;
     }
@@ -228,16 +235,19 @@ public class KeeperContainerService {
     }
 
     private File getReplicationStoreDir(KeeperMeta keeperMeta) {
+        //文件夹 qconfig配置可见 /opt/data/<groupId>/rsd
         String baseDir = keeperContainerConfig.getReplicationStoreDir();
+        //删除路径最后的/
         baseDir = StringUtils.trimTrailingCharacter(baseDir, '/');
+        //创建文件 /opt/data/<groupId>/rsd/replication_store_<port>
         return new File(String.format("%s/replication_store_%s", baseDir, keeperMeta.getPort()));
     }
 
     private String assembleKeeperServerKey(KeeperTransMeta keeperTransMeta) {
-        return assembleKeeperServerKey(keeperTransMeta.getClusterId(), keeperTransMeta.getShardId());
-    }
+            return assembleKeeperServerKey(keeperTransMeta.getClusterId(), keeperTransMeta.getShardId());
+        }
 
-    private String assembleKeeperServerKey(String clusterId, String shardId) {
-        return String.format("%s-%s", clusterId, shardId);
+        private String assembleKeeperServerKey(String clusterId, String shardId) {
+            return String.format("%s-%s", clusterId, shardId);
     }
 }

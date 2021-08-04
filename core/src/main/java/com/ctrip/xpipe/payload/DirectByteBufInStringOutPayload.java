@@ -45,6 +45,11 @@ public class DirectByteBufInStringOutPayload extends AbstractInOutPayload {
         throw new UnsupportedOperationException("Not support");
     }
 
+    /**
+     *
+     * @throws IOException
+     * byteBuf -> String
+     */
     @Override
     protected void doEndInput() throws IOException {
         result = cumulation.toString(Codec.defaultCharset);
@@ -77,11 +82,18 @@ public class DirectByteBufInStringOutPayload extends AbstractInOutPayload {
                 // See:
                 // - https://github.com/netty/netty/issues/2327
                 // - https://github.com/netty/netty/issues/1764
+                /**
+                 * 发现引用超过1的时候 重新创建一个buffer并释放掉cumulation
+                 * 为什么呢？
+                 * 说明有带使用过slice().retain() 和duplicate().retain() 表示有个对象也在使用该对象
+                 *   必须复制出数据以确保不被其他对象所影响
+                 */
                 buffer = expandCumulation(cumulation, in.readableBytes());
                 buffer.writeBytes(in);
                 in.release();
             } else {
                 CompositeByteBuf composite;
+                //为什么要用CompositeByteBuf
                 if (cumulation instanceof CompositeByteBuf) {
                     composite = (CompositeByteBuf) cumulation;
                 } else {

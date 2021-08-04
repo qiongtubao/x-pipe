@@ -31,6 +31,12 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  *         May 31, 2016 5:33:46 PM
  */
+
+/**
+ *  管理ReplicationStore
+ *
+ *  	DefaultReplicationStore
+ */
 public class DefaultReplicationStoreManager extends AbstractLifecycleObservable implements ReplicationStoreManager {
 
 	private final static String META_FILE = "store_manager_meta.properties";
@@ -65,11 +71,17 @@ public class DefaultReplicationStoreManager extends AbstractLifecycleObservable 
 	
 	public DefaultReplicationStoreManager(KeeperConfig keeperConfig, String clusterName, String shardName, String keeperRunid, File baseDir, KeeperMonitor keeperMonitor) {
 		super(MoreExecutors.directExecutor());
+		//集群
 		this.clusterName = clusterName;
+		//分片
 		this.shardName = shardName;
+		//keeper runid
 		this.keeperRunid = keeperRunid;
+		//keeper 配置
 		this.keeperConfig = keeperConfig;
+		//基础文件夹
 		this.baseDir = new File(baseDir, clusterName + "/" + shardName);
+		//meat 配置文件
 		metaFile = new File(this.baseDir, META_FILE);
 		this.keeperMonitor = keeperMonitor;
 	}
@@ -77,7 +89,7 @@ public class DefaultReplicationStoreManager extends AbstractLifecycleObservable 
 	@Override
 	protected void doInitialize() throws Exception {
 		super.doInitialize();
-		
+		//创建一个gc的线程
 		scheduled =  Executors.newScheduledThreadPool(1,
 				ClusterShardAwareThreadFactory.create(clusterName, shardName, "gc-" + String.format("%s-%s", clusterName, shardName)));
 		gcFuture = scheduled.scheduleWithFixedDelay(new AbstractExceptionLogTask() {
@@ -87,7 +99,8 @@ public class DefaultReplicationStoreManager extends AbstractLifecycleObservable 
 				gc();
 			}
 		}, keeperConfig.getReplicationStoreGcIntervalSeconds(), keeperConfig.getReplicationStoreGcIntervalSeconds(), TimeUnit.SECONDS);
-
+		//keeperConfig  getReplicationStoreGcIntervalSeconds 默认值2s
+		//replicationstore.gc.interval.seconds
 	}
 	
 	@Override
@@ -250,12 +263,14 @@ public class DefaultReplicationStoreManager extends AbstractLifecycleObservable 
 	protected synchronized void gc() throws IOException {
 		
 		logger.debug("[gc]{}", this);
-
+		//gc 次数 + 1
 		gcCount.incrementAndGet();
+		//读取meta信息 如果没数据就从加载文件内加载
 		Properties meta = currentMeta(true);
 		final String currentDirName;
 		if (meta != null) {
 			currentDirName = meta.getProperty(LATEST_STORE_DIR);
+			//过滤出文件夹 名字和meta信息内不匹配
 			File[] replicationStoreDirs = baseDir.listFiles(new FileFilter() {
 
 				@Override
@@ -268,6 +283,7 @@ public class DefaultReplicationStoreManager extends AbstractLifecycleObservable 
 				
 				logger.info("[GC][old replicationstore]newest:{}", currentDirName);
 				for (File dir : replicationStoreDirs) {
+					//判断是否过期  默认值 60000ms 1分钟
 					if(System.currentTimeMillis() - dir.lastModified() > keeperConfig.getReplicationStoreMinTimeMilliToGcAfterCreate()){
 						logger.info("[GC] directory {}", dir.getCanonicalPath());
 						FileUtils.recursiveDelete(dir);

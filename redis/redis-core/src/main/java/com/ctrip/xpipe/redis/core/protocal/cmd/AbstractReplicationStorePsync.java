@@ -40,6 +40,7 @@ public abstract class AbstractReplicationStorePsync extends AbstractPsync {
 			replIdRequest = "?";
 			offset = -1;
 		}else{
+			//查询当前的replid
 			replIdRequest = currentReplicationStore.getMetaStore().getReplId();
 			offset = currentReplicationStore.getEndOffset() + 1;
 		}
@@ -70,7 +71,12 @@ public abstract class AbstractReplicationStorePsync extends AbstractPsync {
 
 	@Override
 	protected BulkStringParser createRdbReader() {
-		
+		/**
+		 *  把读取到的数据保存到RdbStore里
+		 *  	这里的inOutPayloadReplicationStore 没有设置rdbStore
+		 *  当协议解析出协议是EOF还是RDBsize的时候 （触发onEofType函数)
+		 *  	inOutPayloadReplicationStore 设置 rdbStore （需要文件大小)
+		 */
 		inOutPayloadReplicationStore = new InOutPayloadReplicationStore();
 		BulkStringParser rdbReader = new BulkStringParser(inOutPayloadReplicationStore);
 		return rdbReader;

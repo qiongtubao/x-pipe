@@ -49,19 +49,21 @@ public class ArrayParser extends AbstractRedisClientProtocol<Object[]>{
 		switch(arrayState){
 		
 			case READ_SIZE:
-				
+				//读取一行数据
 				String arrayNumString = readTilCRLFAsString(byteBuf);
 				if(arrayNumString == null){
 					return null;
 				}
-				
+				//解析*
 				if(arrayNumString.charAt(0) == ASTERISK_BYTE){
+					//删掉开头*字符
 					arrayNumString = arrayNumString.substring(1);
 				}
 				arrayNumString = arrayNumString.trim();
-				
+				//获得数组长度
 				arraySize = Integer.valueOf(arrayNumString);
 				resultArray = new Object[arraySize];
+				//下一步
 				arrayState = ARRAY_STATE.READ_CONTENT;
 				currentIndex = 0;
 				if(arraySize == 0){
@@ -76,7 +78,9 @@ public class ArrayParser extends AbstractRedisClientProtocol<Object[]>{
 					
 					while(true){
 						if(currentParser == null){
-							
+							/**
+							 * 这里是不是可以抽出来 公用
+							 */
 							if(byteBuf.readableBytes() == 0){
 								return null;
 							}
@@ -88,6 +92,7 @@ public class ArrayParser extends AbstractRedisClientProtocol<Object[]>{
 									byteBuf.readByte();
 									break;
 								case DOLLAR_BYTE:
+									//$<length>\r\n<count>\r\n
 									if(inOutPayloadFactory != null) {
 										currentParser = new BulkStringParser(inOutPayloadFactory.create());
 									} else {
@@ -95,15 +100,19 @@ public class ArrayParser extends AbstractRedisClientProtocol<Object[]>{
 									}
 									break;
 								case COLON_BYTE:
+									// 数字
 									currentParser = new LongParser();
 									break;
 								case ASTERISK_BYTE:
+									//数组
 									currentParser = new ArrayParser().setInOutPayloadFactory(inOutPayloadFactory);
 									break;
 								case MINUS_BYTE:
+									//Error
 									currentParser = new RedisErrorParser();
 									break;
 								case PLUS_BYTE:
+									//固定字符  +PONG 等等
 									currentParser = new SimpleStringParser();
 									break;
 								default:
@@ -123,6 +132,7 @@ public class ArrayParser extends AbstractRedisClientProtocol<Object[]>{
 					currentIndex++;
 				}
 				if(currentIndex == arraySize){
+					//数组解析完成
 					return new ArrayParser(resultArray);
 				}
 				break;

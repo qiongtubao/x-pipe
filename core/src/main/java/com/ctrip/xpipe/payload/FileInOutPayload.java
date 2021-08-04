@@ -16,12 +16,19 @@ import java.nio.channels.WritableByteChannel;
  *
  * 2016年3月29日 下午4:33:20
  */
+
+/**
+ *  文件写入写出
+ */
 public class FileInOutPayload extends AbstractInOutPayload{
 
 	private static final Logger logger = LoggerFactory.getLogger(FileInOutPayload.class);
+	//文件名
 	public String fileName;
-	private FileChannel inFileChannel; 
-	private FileChannel outFileChannel; 
+	//写入
+	private FileChannel inFileChannel;
+	//写出
+	private FileChannel outFileChannel;
 	
 	public FileInOutPayload(String fileName) {
 		this.fileName = fileName;
@@ -30,7 +37,7 @@ public class FileInOutPayload extends AbstractInOutPayload{
 	@SuppressWarnings("resource")
 	@Override
 	public void doStartInput() {
-		
+		//RandomAccessFile可以自由访问文件的任意位置
 		try {
 			inFileChannel = new RandomAccessFile(fileName, "rw").getChannel();
 		} catch (FileNotFoundException e) {
@@ -40,8 +47,6 @@ public class FileInOutPayload extends AbstractInOutPayload{
 
 	@Override
 	public int doIn(ByteBuf byteBuf) throws IOException {
-		
-		
 		int readerIndex = byteBuf.readerIndex();
 		int n = inFileChannel.write(byteBuf.nioBuffer());
 		byteBuf.readerIndex(readerIndex + n);

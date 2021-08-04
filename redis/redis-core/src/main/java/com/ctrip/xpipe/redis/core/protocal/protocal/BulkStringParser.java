@@ -22,9 +22,10 @@ import java.io.IOException;
 public class BulkStringParser extends AbstractRedisClientProtocol<InOutPayload> {
 
 	private static final Logger logger = LoggerFactory.getLogger(BulkStringParser.class);
-	
+	//解析类型  $EOF 或者 $<length>
 	private BulkStringEofJudger eofJudger;
 	private BULK_STRING_STATE  bulkStringState = BULK_STRING_STATE.READING_EOF_MARK;
+	//这里只有全量同步解析RDB的时候触发
 	private BulkStringParserListener bulkStringParserListener;
 	
 	
@@ -42,7 +43,7 @@ public class BulkStringParser extends AbstractRedisClientProtocol<InOutPayload> 
 	}
 	
 	public BulkStringParser(InOutPayload bulkStringPayload) {
-		this(bulkStringPayload, null);
+			this(bulkStringPayload, null);
 	}
 	
 	public BulkStringParser(InOutPayload bulkStringPayload, BulkStringParserListener bulkStringParserListener) {
@@ -60,6 +61,14 @@ public class BulkStringParser extends AbstractRedisClientProtocol<InOutPayload> 
 		switch (bulkStringState) {
 
 			case READING_EOF_MARK:
+				/**
+				 *  3种格式
+				 *  BulkStringLengthEofJudger:
+				 *  	$<length>\r\n<count>\r\n
+				 *  	$<rdbsize>\r\n<rdb>
+				 *  BulkStringEofMarkJudger:
+				 *  	$EOF:<40 byte mark>\r\n<rdb><40 byte mark>
+				 */
 				eofJudger = readEOfMark(byteBuf);
 				if (eofJudger == null) {
 					return null;
@@ -67,6 +76,10 @@ public class BulkStringParser extends AbstractRedisClientProtocol<InOutPayload> 
 
 				logger.debug("[read]{}", eofJudger);
 				if (bulkStringParserListener != null) {
+					/**
+					 *  全量同步rdb处理的时候触发
+					 *  作用是什么？
+					 */
 					bulkStringParserListener.onEofType(eofJudger.getEofType());
 				}
 
@@ -80,6 +93,7 @@ public class BulkStringParser extends AbstractRedisClientProtocol<InOutPayload> 
 				int length = 0;
 				try {
 					length = payload.in(byteBuf.slice(readerIndex, result.getReadLen()));
+					//eofJudger 统计这次写入的长度 需要和你实际写入长度一致
 					if (length != result.getReadLen()) {
 						throw new IllegalStateException(String.format("expected readLen:%d, but real:%d", result.getReadLen(), length));
 					}
@@ -93,6 +107,14 @@ public class BulkStringParser extends AbstractRedisClientProtocol<InOutPayload> 
 					int truncate = eofJudger.truncate();
 					try {
 						if (truncate > 0) {
+							/**
+							 * 	场景
+							 *  Redis通过不落磁盘的方式发送数据
+							 *  $EOF:<40 bytes mark>\r\n
+							 *  <rdb>
+							 *  <40 bytes mark>
+							 *  这里需要截掉最后40个字节
+							 */
 							payload.endInputTruncate(truncate);
 						} else {
 							payload.endInput();
@@ -146,7 +168,11 @@ public class BulkStringParser extends AbstractRedisClientProtocol<InOutPayload> 
 		if(markBytes == null){
 			return null;
 		}
-		
+		/**
+		 *  猜测
+		 *  master打包rdb过程中会给slave发送\n 作为心跳  如果只有心跳就放弃本次解析
+		 *
+		 */
 		if(markBytes.getPayload().length == 0){
 			lfReader = null;
 			return null;

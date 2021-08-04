@@ -47,6 +47,14 @@ public abstract class AbstractConfigCommand<T> extends AbstractRedisCommand<T>{
 		
 	}
 
+	/**
+	 *
+	 * @return
+	 * 	 不知道为什么这里要修改实现getBulkStringPayload
+	 * 	 config get 命令返回的是数据数据是  *2\r\n.... 数组格式不是单个数据格式
+	 *
+	 * 	 应该是调用setInOutPayloadFactory 来设置InOutPayloadFactory
+	 */
 	@Override
 	protected InOutPayload getBulkStringPayload() {
 		return new DirectByteBufInStringOutPayload();

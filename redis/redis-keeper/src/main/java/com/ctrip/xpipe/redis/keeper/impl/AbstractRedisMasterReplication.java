@@ -164,7 +164,7 @@ public abstract class AbstractRedisMasterReplication extends AbstractLifecycle i
 			logger.info("[connectWithMaster][do not connect, is stopped!!]{}", redisMaster.masterEndPoint());
 			return;
 		}
-
+		//创建连接master
 		Bootstrap b = new Bootstrap();
 		b.group(nioEventLoopGroup).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true)
 				.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)

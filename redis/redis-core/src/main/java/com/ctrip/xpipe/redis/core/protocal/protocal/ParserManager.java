@@ -32,7 +32,7 @@ public class ParserManager {
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static <T> ByteBuf parse(T o){
-		
+		//通过反射 将参数解析成ByteBuf
 		for(RedisClientProtocol parser : parsers){
 			if(parser.supportes(o.getClass())){
 				
@@ -55,13 +55,18 @@ public class ParserManager {
 	}
 
 	@SuppressWarnings("rawtypes")
+	/**
+	 *   返回class构造方法
+	 */
 	private static <T> Constructor<?> getConstructor(Class<T> clazz, Class argument) {
-		
+		//获得class构造方法
 		for(Constructor<?>  constructor : clazz.getConstructors()){
 			Class<?>[]paraTypes = constructor.getParameterTypes();
+			//判断参数
 			if(paraTypes.length != 1){
 				continue;
 			}
+			//判断参数类型是否和预计参数类型相同
 			if(paraTypes[0].isAssignableFrom(argument)){
 				return constructor;
 			}

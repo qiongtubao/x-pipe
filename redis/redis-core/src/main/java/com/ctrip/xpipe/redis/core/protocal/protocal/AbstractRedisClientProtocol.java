@@ -61,6 +61,11 @@ public abstract class AbstractRedisClientProtocol<T> extends AbstractRedisProtoc
 		return  payloadString;
 	}
 
+	/**
+	 *
+	 * @return
+	 * 命令转成发送的数据ByteBuf
+	 */
 	protected abstract ByteBuf getWriteByteBuf();
 
 	/**

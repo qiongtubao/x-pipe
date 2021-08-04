@@ -29,6 +29,11 @@ public class KeeperContainerController extends AbstractController {
     @Autowired
     private CompositeLeakyBucket leakyBucket;
 
+    /**
+     *
+     * @param keeperTransMeta
+     * 添加keeperserver
+     */
     @RequestMapping(method = RequestMethod.POST)
     public void add(@RequestBody KeeperTransMeta keeperTransMeta) {
 

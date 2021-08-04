@@ -32,18 +32,21 @@ import java.util.concurrent.ScheduledExecutorService;
  *         2016年3月24日 下午2:24:38
  */
 public abstract class AbstractPsync extends AbstractRedisCommand<Object> implements Psync, BulkStringParserListener {
-
+	//是否继续解析命令
 	private boolean saveCommands;
-
+	//rdb解析器
 	private BulkStringParser rdbReader;
-	
+	//psync 发送前使用的replIdRequest
 	private String replIdRequest;
+	//psync 发送前使用的offset
 	private long offsetRequest;
-
+	//接收到的replid
 	protected String replId;
-
+	//接收到的offset
 	protected long masterRdbOffset;
-
+	/**
+	 *
+	 */
 	protected List<PsyncObserver> observers = new LinkedList<PsyncObserver>();
 
 	protected PSYNC_STATE psyncState = PSYNC_STATE.PSYNC_COMMAND_WAITING_REPONSE;
@@ -108,11 +111,23 @@ public abstract class AbstractPsync extends AbstractRedisCommand<Object> impleme
 		if (getLogger().isDebugEnabled()) {
 			getLogger().debug("[doRequest]{}, {}", this, StringUtil.join(" ", requestString.getPayload()));
 		}
+		//转换成psync命令
 		return requestString.format();
 	}
 
 	protected abstract Pair<String, Long> getRequestMasterInfo();
 
+	/**
+	 *
+	 * @param observer
+	 *
+	 * 		AbstractRedisMasterReplication -> LeakyBucketBasedMasterReplicationListener
+	 *
+	 * 		DefaultRedisMasterReplication
+	 * 		redisKeeperServer
+	 *
+	 * 		RdbonlyRedisMasterReplication
+	 */
 	@Override
 	public void addPsyncObserver(PsyncObserver observer) {
 		this.observers.add(observer);
@@ -126,6 +141,17 @@ public abstract class AbstractPsync extends AbstractRedisCommand<Object> impleme
 			switch (psyncState) {
 
 				case PSYNC_COMMAND_WAITING_REPONSE:
+					//解析出字符串
+					/**
+					 *  发送psync命令后返回结果
+					 *  1.增量同步
+					 *  	+CONTINUE
+					 *  	+CONTINUE <replid>  (主从切换 replid变更  但是还是增量时返回会带replidId)
+					 *  2.全量同步
+					 *  	+FULLRESYNC <replid> <offsize>\r\n
+					 *
+					 *  	由于通过命令解析后 返回结果是去掉+的字符串
+					 */
 					Object response = super.doReceiveResponse(channel, byteBuf);
 					if (response == null) {
 						return null;
@@ -138,6 +164,11 @@ public abstract class AbstractPsync extends AbstractRedisCommand<Object> impleme
 					if (rdbReader == null) {
 						getLogger().info("[doReceiveResponse][createRdbReader]{}", ChannelUtil.getDesc(channel));
 						rdbReader = createRdbReader();
+						/**
+						 *  主要是等到解析出协议（EOF还是RDBSize）触发onEofType事件
+						 *  	1。AbstractReplicationStorePsync 类需要把写入数据写到文件,
+						 *  	而onEofType事件会触发创建rdbStore 主要原因是需要知道rdb大小
+						 */
 						rdbReader.setBulkStringParserListener(this);
 					}
 
@@ -145,6 +176,9 @@ public abstract class AbstractPsync extends AbstractRedisCommand<Object> impleme
 					if (payload != null) {
 						psyncState = PSYNC_STATE.READING_COMMANDS;
 						if (!saveCommands) {
+							/**
+							 *  不继续解析命令的话 就返回成功
+							 */
 							future().setSuccess();
 						}
 						endReadRdb();
@@ -174,28 +208,34 @@ public abstract class AbstractPsync extends AbstractRedisCommand<Object> impleme
 		if (getLogger().isInfoEnabled()) {
 			getLogger().info("[handleRedisResponse]{}, {}, {}", ChannelUtil.getDesc(channel), this, psync);
 		}
+		//分割字符串
 		String[] split = splitSpace(psync);
 		if (split.length == 0) {
 			throw new RedisRuntimeException("wrong reply:" + psync);
 		}
-
+		//全量同步
 		if (split[0].equalsIgnoreCase(FULL_SYNC)) {
 			if (split.length != 3) {
 				throw new RedisRuntimeException("unknown reply:" + psync);
 			}
+			//replid
 			replId = split[1];
+			//offset
 			masterRdbOffset = Long.parseLong(split[2]);
 			getLogger().debug("[readRedisResponse]{}, {}, {}, {}", ChannelUtil.getDesc(channel), this, replId,
 					masterRdbOffset);
+			//进入下一步接收rdb
 			psyncState = PSYNC_STATE.READING_RDB;
 
 			doOnFullSync();
 		} else if (split[0].equalsIgnoreCase(PARTIAL_SYNC)) {
-
+			//增量同步
+			//进入下一步解析命令
 			psyncState = PSYNC_STATE.READING_COMMANDS;
 			
 			String newReplId = null;
 			if(split.length >= 2 && split[1].length() == RedisProtocol.RUN_ID_LENGTH){
+				//更新replid
 				newReplId = split[1];
 			}
 			doOnContinue(newReplId);
@@ -249,6 +289,11 @@ public abstract class AbstractPsync extends AbstractRedisCommand<Object> impleme
 		beginReadRdb(eofType);
 	}
 
+	/**
+	 *
+	 * @param eofType
+	 * 		DefaultRedisKeeperServer -> RDBStore写入"1"
+	 */
 	protected void beginReadRdb(EofType eofType) {
 
 		getLogger().info("[beginReadRdb]{}, eof:{}", this, eofType);
@@ -262,6 +307,11 @@ public abstract class AbstractPsync extends AbstractRedisCommand<Object> impleme
 		}
 	}
 
+	/**
+	 *
+	 * 		 DefaultRedisKeeperServer  关闭下游所有slave
+	 *
+	 */
 	protected void notifyReFullSync() {
 
 		for (PsyncObserver observer : observers) {

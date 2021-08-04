@@ -30,7 +30,7 @@ import static org.mockito.Mockito.mock;
  *         2016年4月21日 下午5:42:29
  */
 public class FakeRedisExceptionTest extends AbstractFakeRedisTest {
-
+	//等待一个线程执行完成
 	private CountDownLatch countDownLatch = new CountDownLatch(1);
 	
 	@Before
@@ -71,6 +71,7 @@ public class FakeRedisExceptionTest extends AbstractFakeRedisTest {
 			@Override
 			public void endWriteRdb() {
 				super.endWriteRdb();
+				//触发countDownLatch 线程
 				countDownLatch.countDown();
 			}
 			

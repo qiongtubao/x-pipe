@@ -69,7 +69,7 @@ public abstract class AbstractRedisCommand<T> extends AbstractNettyRequestRespon
 	
 	private RedisClientProtocol<?> redisClientProtocol;
 
-	
+	//重制命令
 	@Override
 	protected void doReset() {
 		commandResponseState = COMMAND_RESPONSE_STATE.READING_SIGN;
@@ -80,7 +80,24 @@ public abstract class AbstractRedisCommand<T> extends AbstractNettyRequestRespon
 		
 		return buff.split("\\s+");
 	}
-	
+
+	/**
+	 *
+	 * @param channel
+	 * @param byteBuf
+	 * @return
+	 * @throws Exception
+	 *
+	 *
+	 * 	sentinelCommand:
+	 * 	   	DirectByteBufInStringOutPayload(作用)
+	 * 	roleCommand:
+	 * 	   	DirectByteBufInStringOutPayload
+	 * 	proxyMonitorCommand:
+	 * 	   	DirectByteBufInStringOutPayload
+	 * 	默认使用
+	 * 		ByteArrayOutputStreamPayload
+	 */
 	@Override
 	protected T doReceiveResponse(Channel channel, ByteBuf byteBuf) throws Exception {
 		
@@ -89,7 +106,7 @@ public abstract class AbstractRedisCommand<T> extends AbstractNettyRequestRespon
 		case READING_SIGN:
 			int readable = byteBuf.readableBytes();
 			for(int i = 0; i < readable ; i++){
-				
+
 				sign = byteBuf.readByte();
 				switch(sign){
 					case '\r':
@@ -97,30 +114,56 @@ public abstract class AbstractRedisCommand<T> extends AbstractNettyRequestRespon
 					case '\n':
 						break;
 					case RedisClientProtocol.MINUS_BYTE:
+						//返回错误  -<Error>\r\n
 						redisClientProtocol = new RedisErrorParser();
 						break;
 					case RedisClientProtocol.ASTERISK_BYTE:
+						//*<length>\r\n
+						/**
+						 * roleCommand:
+						 * 		DirectByteBufInStringOutPayload
+						 * sentinelCommand:
+						 * 		DirectByteBufInStringOutPayload
+						 * proxyMonitorCommand:
+						 * 		DirectByteBufInStringOutPayload
+						 */
 						redisClientProtocol = new ArrayParser().setInOutPayloadFactory(inOutPayloadFactory);
 						break;
 					case RedisClientProtocol.DOLLAR_BYTE:
+						/*
+						 *  单个字符串参数返回
+						 *  $<strlen>\r\n<str>\r\n
+						 */
 						if(inOutPayloadFactory != null) {
+							/**
+							 *  设置接收byte的对象
+							 */
 							redisClientProtocol = new BulkStringParser(inOutPayloadFactory.create());
 						} else {
+							//默认接收byte对象 ByteArrayOut
 							redisClientProtocol = new BulkStringParser(getBulkStringPayload());
 						}
 						break;
 					case RedisClientProtocol.COLON_BYTE:
+						//数字解析
 						redisClientProtocol = new LongParser();
 						break;
 					case RedisClientProtocol.PLUS_BYTE:
+						/*
+							+OK
+							+PONG
+							+QUEUED
+							 等固定字符串
+						 */
 						redisClientProtocol = new SimpleStringParser();
 						break;
 					default:
 						throw new RedisRuntimeException("unkonwn sign:" + (char)sign);
 				}
-				
+
 				if(redisClientProtocol != null){
 					commandResponseState = COMMAND_RESPONSE_STATE.READING_CONTENT;
+					//下一步
 					break;
 				}
 			}
@@ -129,8 +172,10 @@ public abstract class AbstractRedisCommand<T> extends AbstractNettyRequestRespon
 				break;
 			}
 			case READING_CONTENT:
+				//读取数据
 				RedisClientProtocol<?> result = redisClientProtocol.read(byteBuf);
 				if(result != null){
+					//解析获得数据或者Exception
 					Object payload = result.getPayload();
 					if(payload instanceof Exception){
 						handleRedisException((Exception)payload);
@@ -154,8 +199,15 @@ public abstract class AbstractRedisCommand<T> extends AbstractNettyRequestRespon
 	protected InOutPayload getBulkStringPayload() {
 		return new ByteArrayOutputStreamPayload();
 	}
-	
-	
+
+	/**
+	 *
+	 * @param payload
+	 * @return
+	 *
+	 *   接收到数据 转换成字符串
+	 *
+	 */
 	protected String payloadToString(Object payload) {
 
 		if(payload instanceof String){

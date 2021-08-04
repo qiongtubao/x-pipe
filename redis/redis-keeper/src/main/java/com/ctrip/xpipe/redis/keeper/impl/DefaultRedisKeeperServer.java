@@ -128,11 +128,16 @@ public class DefaultRedisKeeperServer extends AbstractRedisServer implements Red
 		this.shardId = currentKeeperMeta.parent().getId();
 		this.currentKeeperMeta = currentKeeperMeta;
 		this.keeperConfig = keeperConfig;
+		// monitor ？
 		this.keepersMonitorManager = keepersMonitorManager;
+		// monitor ？
 		this.keeperMonitor = keepersMonitorManager.getOrCreate(this);
+		//replication store 管理器
 		this.replicationStoreManager = new DefaultReplicationStoreManager(keeperConfig, clusterId, shardId, currentKeeperMeta.getId(), baseDir, keeperMonitor);
 		replicationStoreManager.addObserver(new ReplicationStoreManagerListener());
+		//？
 		this.leaderElectorManager = leaderElectorManager;
+		//？
 		this.resourceManager = resourceManager;
 	}
 
@@ -475,7 +480,9 @@ public class DefaultRedisKeeperServer extends AbstractRedisServer implements Red
 	}
 
 	private void closeSlaves(String reason) {
-		
+		/**
+		 *  关闭下游所有slave
+		 */
 		for(RedisSlave redisSlave : slaves()){
 			try {
 				logger.info("[{}][close slave]{}", reason, redisSlave);

@@ -12,14 +12,15 @@ public interface BulkStringEofJudger {
 	JudgeResult end(ByteBuf byteBuf);
 	
 	long expectedLength();
-	
+
 	int truncate();
 	
 	EofType getEofType();
 	
 	public static class JudgeResult{
-		
+		//是否结束
 		private boolean end;
+		//本次读取长度
 		private int readLen;
 		
 		public JudgeResult(boolean end, int readLen){
