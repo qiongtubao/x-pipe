@@ -50,20 +50,25 @@ public class DefaultDcMetaCache extends AbstractLifecycleObservable implements D
 
 	public static final String META_CHANGE_TYPE = "MetaChange";
 
+	//查询console 使用service
 	@Autowired(required = false)
 	private ConsoleService consoleService;
 
+	//配置文件
 	@Autowired
 	private MetaServerConfig metaServerConfig;
 
+	//当前Dc
 	private String currentDc = FoundationService.DEFAULT.getDataCenter();
 
 	private ScheduledExecutorService scheduled = Executors.newScheduledThreadPool(1, XpipeThreadFactory.create("Meta-Refresher"));
 
 	private ScheduledFuture<?> future;
 
+	//DcMetaManager  所有机房管理
 	private AtomicReference<DcMetaManager> dcMetaManager = new AtomicReference<DcMetaManager>(null);
 
+	//最后修改时间
 	private AtomicLong metaModifyTime = new AtomicLong(System.currentTimeMillis());
 
 	public DefaultDcMetaCache() {
@@ -74,6 +79,7 @@ public class DefaultDcMetaCache extends AbstractLifecycleObservable implements D
 		super.doInitialize();
 
 		logger.info("[doInitialize][dc]{}", currentDc);
+		//加载数据
 		this.dcMetaManager.set(loadMetaManager());
 	}
 
@@ -83,7 +89,9 @@ public class DefaultDcMetaCache extends AbstractLifecycleObservable implements D
 		if (consoleService != null) {
 			try {
 				logger.info("[loadMetaManager][load from console]");
+				//加载dcMeta
 				DcMeta dcMeta = loadMetaFromConsole();
+				//创建DcMetaManager
 				dcMetaManager = DefaultDcMetaManager.buildFromDcMeta(dcMeta);
 			} catch (ResourceAccessException e) {
 				logger.error("[loadMetaManager][consoleService]" + e.getMessage());

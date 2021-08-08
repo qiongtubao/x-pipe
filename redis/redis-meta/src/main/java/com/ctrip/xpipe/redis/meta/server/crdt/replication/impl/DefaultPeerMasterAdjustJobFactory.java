@@ -24,6 +24,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.ctrip.xpipe.redis.meta.server.spring.MetaServerContextConfig.CLIENT_POOL;
 import static com.ctrip.xpipe.spring.AbstractSpringConfigContext.GLOBAL_EXECUTOR;
 
+/**
+ *  更新peerMaster
+ */
 @Component
 public class DefaultPeerMasterAdjustJobFactory implements PeerMasterAdjustJobFactory {
 
@@ -53,6 +56,7 @@ public class DefaultPeerMasterAdjustJobFactory implements PeerMasterAdjustJobFac
     }
 
     public PeerMasterAdjustJob buildPeerMasterAdjustJob(String clusterId, String shardId) {
+        //获取所有的
         Set<String> upstreamPeerDcs = currentMetaManager.getUpstreamPeerDcs(clusterId, shardId);
         if (upstreamPeerDcs.isEmpty()) {
             logger.info("[buildPeerMasterAdjustJob][{}][{}] unknown any upstream dcs, skip adjust", clusterId, shardId);

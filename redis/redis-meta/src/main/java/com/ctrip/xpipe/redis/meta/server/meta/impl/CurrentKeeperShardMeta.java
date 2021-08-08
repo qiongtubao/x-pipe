@@ -12,11 +12,13 @@ import java.io.Serializable;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-
+//保存当前keeperShardMeta
 public class CurrentKeeperShardMeta extends AbstractCurrentShardMeta {
 
     private AtomicBoolean watched = new AtomicBoolean(false);
+    //所有keeperMeta的信息
     private List<KeeperMeta> surviveKeepers = new LinkedList<>();
+    //keeper master的host和ip
     private Pair<String, Integer> keeperMaster;
 
     public CurrentKeeperShardMeta(@JsonProperty("clusterId") String clusterId, @JsonProperty("shardId") String shardId) {
@@ -29,7 +31,7 @@ public class CurrentKeeperShardMeta extends AbstractCurrentShardMeta {
 
     @JsonIgnore
     public boolean setActiveKeeper(KeeperMeta activeKeeper) {
-
+        //查找到keeper
         if (!checkIn(surviveKeepers, activeKeeper)) {
             throw new IllegalArgumentException(
                     "active not in all survivors " + activeKeeper + ", all:" + this.surviveKeepers);
@@ -39,6 +41,7 @@ public class CurrentKeeperShardMeta extends AbstractCurrentShardMeta {
 
     @JsonIgnore
     public KeeperMeta getActiveKeeper() {
+        //所有keeper中获得active
         for (KeeperMeta survive : surviveKeepers) {
             if (survive.isActive()) {
                 return survive;
@@ -49,6 +52,7 @@ public class CurrentKeeperShardMeta extends AbstractCurrentShardMeta {
 
     @SuppressWarnings("unchecked")
     public List<KeeperMeta> getSurviveKeepers() {
+        //拷贝
         return (List<KeeperMeta>) MetaClone.clone((Serializable) surviveKeepers);
     }
 
@@ -71,7 +75,7 @@ public class CurrentKeeperShardMeta extends AbstractCurrentShardMeta {
     }
 
     private boolean doSetActive(KeeperMeta activeKeeper) {
-
+        //只有一个keeper是active
         boolean changed = false;
         logger.info("[doSetActive]{},{},{}", clusterId, shardId, activeKeeper);
         for (KeeperMeta survive : this.surviveKeepers) {
@@ -91,6 +95,7 @@ public class CurrentKeeperShardMeta extends AbstractCurrentShardMeta {
     }
 
     private boolean checkIn(List<KeeperMeta> surviveKeepers, KeeperMeta activeKeeper) {
+        //查找
         for (KeeperMeta survive : surviveKeepers) {
             if (MetaUtils.same(survive, activeKeeper)) {
                 return true;
@@ -104,16 +109,17 @@ public class CurrentKeeperShardMeta extends AbstractCurrentShardMeta {
         if(keeperMaster == null){
             return null;
         }
+        //why clone？
         return new Pair<String, Integer>(keeperMaster.getKey(), keeperMaster.getValue());
     }
-
+    //why synchronized
     public synchronized boolean setKeeperMaster(Pair<String, Integer> keeperMaster) {
 
         logger.info("[setKeeperMaster]{},{},{}", clusterId, shardId, keeperMaster);
         if (ObjectUtils.equals(this.keeperMaster, keeperMaster)) {
             return false;
         }
-
+        //设置keeperMaster
         if(keeperMaster == null){
             this.keeperMaster = null;
         }else{

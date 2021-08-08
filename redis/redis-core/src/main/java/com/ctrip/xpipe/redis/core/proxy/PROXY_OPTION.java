@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
  * May 04, 2018
  */
 public enum PROXY_OPTION {
-
+    //proxy
     ROUTE{
         @Override
         public ProxyOptionParser getProxyOptionParser() {
@@ -29,6 +29,7 @@ public enum PROXY_OPTION {
             return false;
         }
     },
+
     FORWARD_FOR {
         @Override
         public ProxyOptionParser getProxyOptionParser() {
@@ -40,6 +41,7 @@ public enum PROXY_OPTION {
             return false;
         }
     },
+    //
     UNKOWN {
         @Override
         public ProxyOptionParser getProxyOptionParser() {
@@ -73,6 +75,7 @@ public enum PROXY_OPTION {
             return true;
         }
     },
+    //关于内容. 数据
     CONTENT {
         @Override
         public ProxyOptionParser getProxyOptionParser() {

@@ -27,6 +27,7 @@ public class DefaultPeerMasterAdjustAction implements PeerMasterAdjustAction {
 
     @Override
     public void adjustPeerMaster(String clusterId, String shardId) {
+        //创建更新peer job
         PeerMasterAdjustJob adjustJob = adjustJobFactory.buildPeerMasterAdjustJob(clusterId, shardId);
         if (null != adjustJob) peerMasterAdjustExecutors.execute(Pair.of(clusterId, shardId), adjustJob);
     }

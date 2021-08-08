@@ -30,6 +30,7 @@ public class CurrentMeta implements Releasable {
 	@JsonIgnore
 	private Logger logger = LoggerFactory.getLogger(CurrentMeta.class);
 
+	//ClusterId, CurrentClusterMeta
 	private Map<String, CurrentClusterMeta> currentMetas = new ConcurrentHashMap<>();
 
 	private static final String CLUSTER_NOT_SUPPORT_KEEPER_TEMPLATE = "cluster: %s, type: %s not support keeper";
@@ -272,6 +273,7 @@ public class CurrentMeta implements Releasable {
 
 		private String clusterId;
 		private String clusterType;
+		//Shard   CurrentShardMeta
 		private Map<String, CurrentShardMeta> clusterMetas = new ConcurrentHashMap<>();
 
 		public CurrentClusterMeta() {

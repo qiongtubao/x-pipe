@@ -7,9 +7,10 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class CurrentCRDTShardMeta extends AbstractCurrentShardMeta {
-
+    //当前机房master
     RedisMeta currentMaster;
 
+    //其他机房master
     Map<String, RedisMeta> peerMasters = new ConcurrentHashMap<>();
 
     public CurrentCRDTShardMeta(@JsonProperty("clusterId") String clusterId, @JsonProperty("shardId") String shardId) {

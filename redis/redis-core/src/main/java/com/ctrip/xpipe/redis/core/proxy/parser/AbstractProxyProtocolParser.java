@@ -53,17 +53,22 @@ public abstract class AbstractProxyProtocolParser<V extends ProxyProtocol> imple
 
     @Override
     public V read(String protocol) {
+        //以ROPXY 开头的协议才行
         if(!protocol.toLowerCase().startsWith(ProxyProtocol.KEY_WORD.toLowerCase())) {
             throw new ProxyProtocolException("proxy protocol format error: " + protocol);
         }
-
+        //去除PROXY
         String options = removeKeyWord(protocol);
+        //分割   \\s*;\\s*
         String[] allOption = options.split(LINE_SPLITTER);
+        //
         boolean optionImportant = false;
         for(String option : allOption) {
+            //判断最后一个字符是否为# 
             if((optionImportant = isOptionImportant(option))) {
                 option = option.substring(0, option.length() - 1);
             }
+            //解析出Parser
             ProxyOptionParser optionParser = PROXY_OPTION.getOptionParser(option.trim());
             if(optionImportant && optionParser.option().equals(PROXY_OPTION.UNKOWN)) {
                 throw new ProxyProtocolParseException(String.format("UNKNOWN IMPORTANT PROXY PROTOCOL OPTION: %s", option));

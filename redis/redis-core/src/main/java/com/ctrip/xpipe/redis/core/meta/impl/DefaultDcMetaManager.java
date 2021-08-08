@@ -18,13 +18,14 @@ import java.util.Set;
  * Jul 7, 2016
  */
 public final class DefaultDcMetaManager implements DcMetaManager{
-	
+	//管理所有dcmeta
 	protected XpipeMetaManager metaManager;
 	
 	protected Logger logger = LoggerFactory.getLogger(getClass());
-	
+
+	//当前dc
 	protected String currentDc;
-	
+
 	private DefaultDcMetaManager(String currentDc, XpipeMetaManager xpipeMetaManager){
 		this.metaManager = xpipeMetaManager;
 		this.currentDc = currentDc;

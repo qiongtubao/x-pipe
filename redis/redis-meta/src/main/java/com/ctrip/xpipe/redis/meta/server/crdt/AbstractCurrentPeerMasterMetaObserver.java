@@ -22,13 +22,14 @@ public abstract class AbstractCurrentPeerMasterMetaObserver extends AbstractCurr
     protected void handleClusterModified(ClusterMetaComparator comparator) {
         String clusterId = comparator.getCurrent().getId();
         for (ShardMeta shardMeta : comparator.getAdded()){
+            //只加不删什么意思？
             addShard(clusterId, shardMeta.getId());
         }
     }
 
     @Override
     protected void handleClusterDeleted(ClusterMeta clusterMeta) {
-
+        //双向同步最后怎么就没有删除呢？
     }
 
     @Override

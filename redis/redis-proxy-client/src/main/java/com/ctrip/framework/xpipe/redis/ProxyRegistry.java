@@ -6,7 +6,7 @@ import com.ctrip.framework.xpipe.redis.utils.ProxyUtil;
 import static com.ctrip.framework.xpipe.redis.utils.Constants.PROXY_KEY_WORD;
 
 public class ProxyRegistry {
-
+    //注册 连接到某个终端的路由
     public static boolean registerProxy(String ip, int port, String routeInfo) {
         if (routeInfo != null && routeInfo.startsWith(PROXY_KEY_WORD)) {
             ProxyUtil.getInstance().registerProxy(ip, port, routeInfo);

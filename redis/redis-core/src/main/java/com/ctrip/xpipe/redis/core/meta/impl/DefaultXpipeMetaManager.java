@@ -32,7 +32,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class DefaultXpipeMetaManager extends AbstractMetaManager implements XpipeMetaManager{
 	
 	private String fileName = null;
-
+	//Map <String, DcMeta> 存放所有DcMeta
 	protected final XpipeMeta xpipeMeta;
 	private Map<HostPort, MetaDesc> inverseMap;
 

@@ -49,13 +49,16 @@ public class DefaultCurrentMetaManager extends AbstractLifecycleObservable imple
 	
 	@Autowired
 	private SlotManager slotManager;
-	
+
+	//查询集群
 	@Autowired
 	private CurrentClusterServer currentClusterServer;
-	
+
+	//静态数据
 	@Autowired
 	private DcMetaCache dcMetaCache;
-	
+
+	//动态数据
 	private CurrentMeta currentMeta = new CurrentMeta();
 	
 	private Set<Integer>   currentSlots = new HashSet<>();
@@ -64,7 +67,9 @@ public class DefaultCurrentMetaManager extends AbstractLifecycleObservable imple
 	private ScheduledExecutorService scheduled;
 
 	private ScheduledFuture<?> 		slotCheckFuture;
-	
+
+	//stateHandlers 我理解上来讲,是动态数据变更  比如master角色变更，peer变更 触发的事件
+	//notifyObservers 的话是静态数据变更 引发的事件 比如dcMeta 或者routeMeta变更
 	@Autowired
 	private List<MetaServerStateChangeHandler> stateHandlers;
 
@@ -81,13 +86,14 @@ public class DefaultCurrentMetaManager extends AbstractLifecycleObservable imple
 		setExecutors(executors);
 
 		logger.info("[doInitialize]{}, {}", stateHandlers, currentClusterServer.getServerId());
+		//当dcMetaCache 拉取数据对比之后发现变更的时候, 触发update事件
 		dcMetaCache.addObserver(this);
 	}
 	
 	@Override
 	protected void doStart() throws Exception {
 		super.doStart();
-		
+		//添加自己管理的cluster的slot
 		for(Integer slotId : currentClusterServer.slots()){
 			addSlot(slotId);
 		}
@@ -108,11 +114,10 @@ public class DefaultCurrentMetaManager extends AbstractLifecycleObservable imple
 		super.addObserver(observer);
 	}
 
-	
+	//更新slots
 	protected void checkAddOrRemoveSlots() {
-		
 		Set<Integer> slots = slotManager.getSlotsByServerId(currentClusterServer.getServerId(), false);
-		
+		//先对比slots
 		Pair<Set<Integer>, Set<Integer>> result = getAddAndRemove(slots, currentSlots);
 		
 		for(Integer slotId : result.getKey()){
@@ -161,11 +166,13 @@ public class DefaultCurrentMetaManager extends AbstractLifecycleObservable imple
 	}
 	
 	private void handleClusterChanged(ClusterMetaComparator clusterMetaComparator) {
-		
+		//集群变更
 		String clusterId = clusterMetaComparator.getCurrent().getId();
+		//逻辑好像少了 如果集群类型变更的话 这里应该先删除后添加
 		if(currentMeta.hasCluster(clusterId)){
 			
 			currentMeta.changeCluster(clusterMetaComparator);
+			//AbstractCurrentMetaObserver 绑上来的事件
 			notifyObservers(clusterMetaComparator);
 		}else{
 			logger.warn("[handleClusterChanged][but we do not has it]{}", clusterMetaComparator);
@@ -175,11 +182,13 @@ public class DefaultCurrentMetaManager extends AbstractLifecycleObservable imple
 
 
 	private void addCluster(String clusterId) {
-		
+		//添加集群
 		ClusterMeta clusterMeta = dcMetaCache.getClusterMeta(clusterId);
 		
 		logger.info("[addCluster]{}, {}", clusterId, clusterMeta);
 		currentMeta.addCluster(clusterMeta);
+		//AbstractCurrentMetaObserver 绑上来的事件
+		//handleClusterAdd
 		notifyObservers(new NodeAdded<ClusterMeta>(clusterMeta));
 	}
 
@@ -189,10 +198,11 @@ public class DefaultCurrentMetaManager extends AbstractLifecycleObservable imple
 	}
 	
 	private void removeCluster(ClusterMeta clusterMeta) {
-		
+		//删除集群
 		logger.info("[removeCluster]{}", clusterMeta.getId());
 		boolean result = currentMeta.removeCluster(clusterMeta.getId()) != null;
 		if(result){
+			//AbstractCurrentMetaObserver 绑上来的事件
 			notifyObservers(new NodeDeleted<ClusterMeta>(clusterMeta));
 		}
 	}
@@ -226,7 +236,7 @@ public class DefaultCurrentMetaManager extends AbstractLifecycleObservable imple
 
 	@Override
 	public void addSlot(int slotId) {
-		
+		//触发addCluster
 		logger.info("[addSlot]{}", slotId);
 		currentSlots.add(slotId);
 		for(String clusterId : dcMetaCache.getClusters()){
@@ -255,10 +265,11 @@ public class DefaultCurrentMetaManager extends AbstractLifecycleObservable imple
 	public void update(Object args, Observable observable) {
 		
 		if(args instanceof DcMetaComparator){
-			
+			//dcMetaCache 发现dcMeta变更
 			dcMetaChange((DcMetaComparator)args);
 		} else if(args instanceof DcRouteMetaComparator) {
-
+			//dcMetaCache 发现routeMeta变更
+			//这里只有delete 或者 change事件 （add 事件不触发)
 			routeChanges();
 		} else{
 			
@@ -472,6 +483,7 @@ public class DefaultCurrentMetaManager extends AbstractLifecycleObservable imple
 	private void notifyCurrentMasterChanged(String clusterId, String shardId) {
 		for (MetaServerStateChangeHandler stateHandler : stateHandlers){
 			try {
+				//状态变更的handler
 				stateHandler.currentMasterChanged(clusterId, shardId);
 			} catch (Exception e) {
 				logger.error("[notifyCurrentMasterChanged] {}, {}", clusterId, shardId, e);
