@@ -2,6 +2,7 @@ package com.ctrip.xpipe.redis.core.meta.comparator;
 
 import com.ctrip.xpipe.redis.core.entity.ClusterMeta;
 import com.ctrip.xpipe.redis.core.entity.DcMeta;
+import com.ctrip.xpipe.utils.ObjectUtils;
 import org.unidal.tuple.Triple;
 
 import java.util.Set;
@@ -71,6 +72,10 @@ public class DcMetaComparator extends AbstractMetaComparator<ClusterMeta, DcChan
 		for(String clusterId : intersectionClusterIds){
 			ClusterMeta currentMeta = current.findCluster(clusterId);
 			ClusterMeta futureMeta = future.findCluster(clusterId);
+			if(!ObjectUtils.equals(currentMeta.getType(), futureMeta.getType())) {
+				removed.add(currentMeta);
+				added.add(futureMeta);
+			}
 			if(!reflectionEquals(currentMeta, futureMeta)){
 				ClusterMetaComparator clusterMetaComparator = new ClusterMetaComparator(currentMeta, futureMeta);
 				clusterMetaComparator.compare();
