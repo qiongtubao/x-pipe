@@ -7,6 +7,7 @@ import com.ctrip.xpipe.redis.core.entity.*;
 import com.ctrip.xpipe.tuple.Pair;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -138,6 +139,10 @@ public interface XpipeMetaManager extends MetaUpdateOperation, ReadWriteSafe {
 
 	default RouteMeta metaRandomRoutes(String currentDc, Integer orgId, String dstDc){
 		return randomRoute(currentDc, Route.TAG_META, orgId, dstDc);
+	}
+
+	default List<RouteMeta> metaAllRoutes(String currentDc) {
+		return doGetRoutes(currentDc, Route.TAG_META);
 	}
 
 	default RouteMeta consoleRandomRoute(String currentDc, Integer orgId, String dstDc) {

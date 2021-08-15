@@ -1,6 +1,7 @@
 package com.ctrip.xpipe.redis.meta.server.meta;
 
 import com.ctrip.xpipe.api.factory.ObjectFactory;
+import com.ctrip.xpipe.api.foundation.FoundationService;
 import com.ctrip.xpipe.api.lifecycle.Releasable;
 import com.ctrip.xpipe.cluster.ClusterType;
 import com.ctrip.xpipe.codec.JsonCodec;
@@ -9,16 +10,19 @@ import com.ctrip.xpipe.redis.core.meta.MetaComparator;
 import com.ctrip.xpipe.redis.core.meta.MetaComparatorVisitor;
 import com.ctrip.xpipe.redis.core.meta.comparator.ClusterMetaComparator;
 import com.ctrip.xpipe.redis.core.meta.comparator.ShardMetaComparator;
+import com.ctrip.xpipe.redis.core.util.OrgUtil;
 import com.ctrip.xpipe.redis.meta.server.meta.impl.CurrentCRDTShardMeta;
 import com.ctrip.xpipe.redis.meta.server.meta.impl.CurrentKeeperShardMeta;
 import com.ctrip.xpipe.tuple.Pair;
 import com.ctrip.xpipe.utils.MapUtils;
+import com.ctrip.xpipe.utils.ObjectUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * @author wenchao.meng
@@ -144,6 +148,16 @@ public class CurrentMeta implements Releasable {
 		return currentCRDTShardMeta.getPeerMaster(dcId);
 	}
 
+	public RouteMeta getClusterRouteByDcId(String dcId, String clusterId) {
+		CurrentClusterMeta clusterMeta = currentMetas.get(clusterId);
+		return clusterMeta.getRouteByDcId(dcId);
+	}
+
+	public List<String> updateClusterRoutes(String clusterId, List<RouteMeta> routes, ClusterMeta clusterMeta) {
+		CurrentClusterMeta currentClusterMeta = currentMetas.get(clusterId);
+		return currentClusterMeta.updateOutterRoutes(routes, clusterMeta);
+	}
+
 	public void removePeerMaster(String dcId, String clusterId, String shardId) {
 		checkClusterSupportPeerMaster(clusterId);
 
@@ -158,7 +172,7 @@ public class CurrentMeta implements Releasable {
 		return currentCRDTShardMeta.getUpstreamPeerDcs();
 	}
 
-	public List<RedisMeta> getAllPeerMasters(String clusterId, String shardId) {
+	public Map<String, RedisMeta> getAllPeerMasters(String clusterId, String shardId) {
 		checkClusterSupportPeerMaster(clusterId);
 
 		CurrentCRDTShardMeta currentCRDTShardMeta = (CurrentCRDTShardMeta) getCurrentShardMetaOrThrowException(clusterId, shardId);
@@ -266,13 +280,14 @@ public class CurrentMeta implements Releasable {
 	}
 
 	public static class CurrentClusterMeta implements Releasable {
-
+		private static final String currentDcId = FoundationService.DEFAULT.getDataCenter();
 		@JsonIgnore
 		private static Logger logger = LoggerFactory.getLogger(CurrentClusterMeta.class);
 
 		private String clusterId;
 		private String clusterType;
 		private Map<String, CurrentShardMeta> clusterMetas = new ConcurrentHashMap<>();
+		private Map<String, RouteMeta> routeMetas = new ConcurrentHashMap<>();
 
 		public CurrentClusterMeta() {
 
@@ -359,6 +374,85 @@ public class CurrentMeta implements Releasable {
 
 		public String getClusterType() {
 			return clusterType;
+		}
+
+		private RouteMeta chooseRoute(int orgId, List<RouteMeta> dstDcRoutes, ChooseRouteStrategy strategy) {
+			List<RouteMeta> resultsCandidates = new LinkedList<>();
+			dstDcRoutes.forEach(routeMeta -> {
+				if(ObjectUtils.equals(routeMeta.getOrgId(), orgId)){
+					resultsCandidates.add(routeMeta);
+				}
+			});
+
+			if(!resultsCandidates.isEmpty()){
+				return strategy.choose(resultsCandidates);
+			}
+
+
+			dstDcRoutes.forEach(routeMeta -> {
+				if(OrgUtil.isDefaultOrg(routeMeta.getOrgId())){
+					resultsCandidates.add(routeMeta);
+				}
+			});
+
+			return strategy.choose(resultsCandidates);
+		}
+
+		private Map<String, RouteMeta> chooseDcRoutes(List<RouteMeta> routes, ClusterMeta clusterMeta) {
+			if(routes == null || routes.isEmpty()){
+				return null;
+			}
+			logger.debug("[randomRoute]routes: {}", routes);
+			Map<String, List<RouteMeta>> allDcRoutes = new ConcurrentHashMap<>();
+			routes.forEach(routeMeta -> {
+				String dcName = routeMeta.getDstDc();
+				List<RouteMeta> dcRoutes = MapUtils.getOrCreate(allDcRoutes, dcName, new ObjectFactory<List<RouteMeta>>() {
+					@Override
+					public List<RouteMeta> create() {
+						return new LinkedList<>();
+					}
+				});
+				dcRoutes.add(routeMeta);
+			});
+			Map<String, RouteMeta> allDcRoute = new ConcurrentHashMap<>();
+			int orgId = clusterMeta.getOrgId();
+			String clusterId = clusterMeta.getId();
+			for (String dcId : clusterMeta.getDcs().split("\\s*,\\s*")) {
+				if (currentDcId.equalsIgnoreCase(dcId)) continue;
+				RouteMeta route = chooseRoute(orgId, allDcRoutes.get(dcId), new ChooseRouteStrategy.HashCodeChooseRouteStrategy(clusterId.hashCode()));
+				if(route != null) allDcRoute.put(dcId, route);
+			}
+			return allDcRoute;
+		}
+
+		List<String> getDiff(Map<String, RouteMeta> map1, Map<String, RouteMeta> map2) {
+			List<String> diffDcs = new LinkedList<>();
+			Set<String> comparedDcs = new HashSet<>();
+
+			for(Map.Entry<String, RouteMeta> entry : map1.entrySet()) {
+				RouteMeta comparedRouteMeta = map2.get(entry.getKey());
+				if(comparedRouteMeta == null || !comparedRouteMeta.getRouteInfo().equals(entry.getValue().getRouteInfo())) {
+					diffDcs.add(entry.getKey());
+				}
+				comparedDcs.add(entry.getKey());
+			}
+			for(Map.Entry<String , RouteMeta> entry: map2.entrySet()) {
+				if(!comparedDcs.contains(entry.getKey())) {
+					diffDcs.add(entry.getKey());
+				}
+			}
+			return diffDcs;
+		}
+
+		public List<String> updateOutterRoutes(List<RouteMeta> routes, ClusterMeta clusterMeta) {
+			Map<String, RouteMeta> allRoutes = chooseDcRoutes(routes, clusterMeta);
+			List<String> diffDcs = getDiff(this.routeMetas, allRoutes);
+			this.routeMetas = allRoutes;
+			return diffDcs;
+		}
+
+		public RouteMeta getRouteByDcId(String dcId) {
+			return this.routeMetas.get(dcId);
 		}
 
 	}

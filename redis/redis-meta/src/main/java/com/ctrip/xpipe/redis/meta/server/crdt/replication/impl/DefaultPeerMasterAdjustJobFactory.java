@@ -1,8 +1,11 @@
 package com.ctrip.xpipe.redis.meta.server.crdt.replication.impl;
 
+import com.ctrip.xpipe.api.endpoint.Endpoint;
 import com.ctrip.xpipe.endpoint.DefaultEndPoint;
 import com.ctrip.xpipe.pool.XpipeNettyClientKeyedObjectPool;
 import com.ctrip.xpipe.redis.core.entity.RedisMeta;
+import com.ctrip.xpipe.redis.core.entity.RouteMeta;
+import com.ctrip.xpipe.redis.core.util.EndPointUtil;
 import com.ctrip.xpipe.redis.meta.server.crdt.replication.PeerMasterAdjustJobFactory;
 import com.ctrip.xpipe.redis.meta.server.job.PeerMasterAdjustJob;
 import com.ctrip.xpipe.redis.meta.server.meta.CurrentMetaManager;
@@ -16,10 +19,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Collectors;
 
 import static com.ctrip.xpipe.redis.meta.server.spring.MetaServerContextConfig.CLIENT_POOL;
 import static com.ctrip.xpipe.spring.AbstractSpringConfigContext.GLOBAL_EXECUTOR;
@@ -64,8 +69,13 @@ public class DefaultPeerMasterAdjustJobFactory implements PeerMasterAdjustJobFac
             logger.info("[buildPeerMasterAdjustJob][{}][{}] unknown current master, skip adjust", clusterId, shardId);
             return null;
         }
-
-        List<RedisMeta> allPeerMasters = currentMetaManager.getAllPeerMasters(clusterId, shardId);
+//        Map<String, RouteMeta> allRoutes = currentMetaManager.getAllRoutes(clusterId);
+        List<Pair<Long, Endpoint>> allPeerMasters = currentMetaManager.getAllPeerMasters(clusterId, shardId).entrySet().stream().map(entry -> {
+            String dcName = entry.getKey();
+            RouteMeta routeMeta = currentMetaManager.getClusterRouteByDcId(dcName, clusterId);
+            Endpoint endpoint = EndPointUtil.create(entry.getValue(), routeMeta);
+            return new Pair<Long, Endpoint>(entry.getValue().getGid(), endpoint);
+        }).collect(Collectors.toList());
         return new PeerMasterAdjustJob(clusterId, shardId, allPeerMasters,
                 Pair.of(currentMaster.getIp(), currentMaster.getPort()), false,
                 keyedObjectPool.getKeyPool(new DefaultEndPoint(currentMaster.getIp(), currentMaster.getPort())),
