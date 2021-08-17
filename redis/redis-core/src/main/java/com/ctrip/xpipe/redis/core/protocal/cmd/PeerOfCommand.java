@@ -59,10 +59,13 @@ public class PeerOfCommand extends AbstractRedisCommand {
                    RouteOptionParser parser = (RouteOptionParser)((DefaultProxyConnectProtocol) protocol).getParser().getProxyOptionParser(PROXY_OPTION.ROUTE);
                    if( parser != null) {
                        String servers = parser.getNextEndpoints().stream().map(endpoint -> {
-                           return endpoint.toString();
+                           return endpoint.getHost() + ":" + endpoint.getPort();
                        }).collect(Collectors.joining(","));
-                       parser.removeNextNodes();
-                       params = ArrayUtils.addAll(params, TEMP_PROXY_TYPE, "XPIPE-PROXY", TEMP_PROXY_SERVERS, servers, TEMP_PROXY_PARAMS, parser.getContent());
+                       params = ArrayUtils.addAll(params, TEMP_PROXY_TYPE, "XPIPE-PROXY", TEMP_PROXY_SERVERS, servers);
+                       String proxyParams = new RouteOptionParser().read(parser.output()).getContent();
+                       if(proxyParams != null) {
+                           params = ArrayUtils.addAll(params, TEMP_PROXY_PARAMS, "\"" + proxyParams + "\"");
+                       }
                    }
                }
             }

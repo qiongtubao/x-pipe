@@ -576,6 +576,7 @@ public class DefaultXpipeMetaManager extends AbstractMetaManager implements Xpip
 
 	@Override
 	public String doGetDcZone(String dcId) {
+		logger.info("dc {}", dcId);
 		return getDirectDcMeta(dcId).getZone();
 	}
 

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.net.InetSocketAddress;
+import java.util.Objects;
 
 /**
  * @author chen.zhu
@@ -46,7 +47,11 @@ public class ProxyEnabledEndpoint extends DefaultEndPoint implements Endpoint, P
     }
 
     @Override
-    public boolean equals(Object obj) {
-        return super.equals(obj);
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        if (!super.equals(o)) return false;
+        ProxyEnabledEndpoint that = (ProxyEnabledEndpoint) o;
+        return Objects.equals(protocol, that.protocol);
     }
 }

@@ -19,6 +19,7 @@ import com.ctrip.xpipe.redis.core.protocal.cmd.RoleCommand;
 import com.ctrip.xpipe.redis.core.protocal.pojo.Role;
 import com.ctrip.xpipe.redis.integratedtest.console.app.ConsoleApp;
 import com.ctrip.xpipe.redis.integratedtest.console.app.MetaserverApp;
+import com.ctrip.xpipe.redis.integratedtest.console.cmd.CrdtRedisStartCmd;
 import com.ctrip.xpipe.redis.integratedtest.console.cmd.RedisKillCmd;
 import com.ctrip.xpipe.redis.integratedtest.console.cmd.RedisStartCmd;
 import com.ctrip.xpipe.redis.integratedtest.console.cmd.ServerStartCmd;
@@ -104,6 +105,22 @@ public abstract class AbstractXPipeClusterTest extends AbstractConsoleDbTest {
         subProcessCmds.add(redis);
         return redis;
     }
+
+    protected RedisStartCmd startCrdtRedis(int gid, int port) {
+        RedisStartCmd redis = new CrdtRedisStartCmd(gid, port, executors);
+        redis.execute(executors).addListener(redisFuture -> {
+            if (redisFuture.isSuccess()) {
+                logger.info("[startRedis] redis{} end {}", port, redisFuture.get());
+            } else {
+                logger.info("[startRedis] redis{} fail", port, redisFuture.cause());
+            }
+        });
+
+        redisPorts.add(port);
+        subProcessCmds.add(redis);
+        return redis;
+    }
+
 
     protected RedisStartCmd startSentinel(int port) {
         RedisStartCmd redis = new RedisStartCmd(port, true, executors);

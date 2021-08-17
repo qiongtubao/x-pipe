@@ -10,8 +10,10 @@ import com.ctrip.xpipe.tuple.Pair;
 import com.ctrip.xpipe.utils.StringUtil;
 import org.apache.logging.log4j.util.Strings;
 
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class CRDTInfoResultExtractor extends InfoResultExtractor {
 
@@ -54,10 +56,16 @@ public class CRDTInfoResultExtractor extends InfoResultExtractor {
         String proxy_type = extract(String.format(TEMP_PROXY_TYPE, index));
         if (!Strings.isEmpty(proxy_type)) {
             switch (proxy_type) {
-                case "XPIPE-PROXY":
-                    String servers = extract(String.format(TEMP_PROXY_SERVERS, index));
+                case "xpipe_proxy":
+                    String servers = Arrays.stream(extract(String.format(TEMP_PROXY_SERVERS, index)).trim().split(",")).map(server -> {
+                        return "PROXYTCP://" + server;
+                    }).collect(Collectors.joining(","));
+                    String protocolStr = "PROXY ROUTE " + servers;
                     String params = extract(String.format(TEMP_PROXY_PARAMS, index));
-                    ProxyConnectProtocol protocol = new DefaultProxyConnectProtocolParser().read(String.format("+PROXY ROUTE %s %s", servers, params));
+                    if(!StringUtil.isEmpty(params) && !params.equals("(null)")) {
+                        protocolStr += " " + params;
+                    }
+                    ProxyConnectProtocol protocol = new DefaultProxyConnectProtocolParser().read(protocolStr);
                     endpoint = new ProxyEnabledEndpoint(host, Integer.parseInt(port), protocol);
                     break;
             }

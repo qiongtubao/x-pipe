@@ -5,6 +5,8 @@ import com.ctrip.xpipe.redis.meta.server.crdt.replication.PeerMasterAdjustAction
 import com.ctrip.xpipe.redis.meta.server.crdt.replication.PeerMasterAdjustJobFactory;
 import com.ctrip.xpipe.redis.meta.server.job.PeerMasterAdjustJob;
 import com.ctrip.xpipe.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -25,8 +27,10 @@ public class DefaultPeerMasterAdjustAction implements PeerMasterAdjustAction {
         this.peerMasterAdjustExecutors = peerMasterAdjustExecutors;
     }
 
+    static final Logger logger = LoggerFactory.getLogger(DefaultPeerMasterAdjustAction.class);
     @Override
     public void adjustPeerMaster(String clusterId, String shardId) {
+        logger.info("adjustPeerMaster: {} {}", clusterId, shardId);
         PeerMasterAdjustJob adjustJob = adjustJobFactory.buildPeerMasterAdjustJob(clusterId, shardId);
         if (null != adjustJob) peerMasterAdjustExecutors.execute(Pair.of(clusterId, shardId), adjustJob);
     }

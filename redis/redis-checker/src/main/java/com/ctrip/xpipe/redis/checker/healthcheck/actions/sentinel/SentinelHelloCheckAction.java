@@ -2,6 +2,7 @@ package com.ctrip.xpipe.redis.checker.healthcheck.actions.sentinel;
 
 import com.ctrip.xpipe.api.monitor.Task;
 import com.ctrip.xpipe.api.monitor.TransactionMonitor;
+import com.ctrip.xpipe.cluster.ClusterType;
 import com.ctrip.xpipe.concurrent.AbstractExceptionLogTask;
 import com.ctrip.xpipe.endpoint.HostPort;
 import com.ctrip.xpipe.exception.ExceptionUtils;
@@ -116,7 +117,7 @@ public class SentinelHelloCheckAction extends AbstractLeaderAwareHealthCheckActi
             metaCache.getXpipeMeta().getDcs().forEach((dc, dcMeta) -> {
                 ClusterMeta clusterMeta = dcMeta.getClusters().get(getActionInstance().getCheckInfo().getClusterId());
                 logger.debug("[{}-{}][{}]found in MetaCache", LOG_TITLE, instance.getCheckInfo().getClusterId(), dc, instance.getCheckInfo().getClusterId());
-                if (clusterMeta != null && !metaCache.isCrossRegion(clusterMeta.getActiveDc(), dc)) {
+                if (clusterMeta != null && clusterMeta.getType().equals(ClusterType.ONE_WAY.name()) && !metaCache.isCrossRegion(clusterMeta.getActiveDc(), dc)) {
                     Map<String, ShardMeta> clusterShards = clusterMeta.getShards();
                     logger.debug("[{}-{}][{}]shards num:{}, detail info:{}", LOG_TITLE, instance.getCheckInfo().getClusterId(), dc, clusterShards.size(), clusterShards);
                     clusterShards.forEach((shardId, shardMeta) -> {
