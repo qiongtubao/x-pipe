@@ -54,7 +54,6 @@ public class ProxyAgentTool {
             URL url = src.getLocation();
             if(Pattern.matches(".*/redis-proxy-client/target/classes/", url.toString())) {
                 url = new URL("file:" + url.getPath() + "../redis-proxy-client-1.2.6.jar");
-                url.getProtocol();
             }
             URI uri = url.toURI();
             String protocol = uri.toString();

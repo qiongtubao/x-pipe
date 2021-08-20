@@ -43,12 +43,12 @@ public class ServerStartCmd extends AbstractForkProcessCmd {
         URL[] urls = urlsFromClassLoader(Thread.currentThread().getContextClassLoader());
         String classPath = ".:";
         for (URL url: urls) {
-            if(Pattern.matches(".*/redis-proxy-client/target/classes/", url.toString())) {
-                classPath += url + "../redis-proxy-client-1.2.6.jar:";
-                
-            } else {
+//            if(Pattern.matches(".*/redis-proxy-client/target/classes/", url.toString())) {
+//                classPath += url + "../redis-proxy-client-1.2.6.jar:";
+//                
+//            } else {
                 classPath += url.getPath() + ":";
-            }
+//            }
             
         }
         classPath = classPath.substring(0, classPath.length() - 1);

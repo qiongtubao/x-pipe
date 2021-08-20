@@ -76,6 +76,19 @@
 			<artifactId>redis-checker</artifactId>
 			<scope>test</scope>
 			<version>${project.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.ctrip.framework.xpipe.redis</groupId>
+					<artifactId>redis-proxy-client</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>com.ctrip.framework.xpipe.redis</groupId>
+			<artifactId>redis-proxy-client</artifactId>
+			<scope>system</scope>
+			<version>${project.version}</version>
+			<systemPath>${project.basedir}/../redis-proxy-client/target/redis-proxy-client-${project.version}.jar</systemPath>
 		</dependency>
 		<dependency>
 			<groupId>com.ctrip.framework.xpipe.redis</groupId>
