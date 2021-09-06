@@ -1,7 +1,7 @@
 package com.ctrip.xpipe.redis.checker.healthcheck.actions.sentinel;
 
 import com.ctrip.xpipe.cluster.ClusterType;
-import com.ctrip.xpipe.redis.checker.Persistence;
+import com.ctrip.xpipe.redis.checker.PersistenceCache;
 import com.ctrip.xpipe.redis.checker.alert.ALERT_TYPE;
 import com.ctrip.xpipe.redis.checker.config.CheckerConfig;
 import com.ctrip.xpipe.redis.checker.config.CheckerDbConfig;
@@ -39,7 +39,7 @@ public class SentinelHelloCheckActionFactory extends AbstractClusterLeaderAwareH
 
     private CheckerDbConfig checkerDbConfig;
 
-    private Persistence persistence;
+    private PersistenceCache persistenceCache;
 
     private MetaCache metaCache;
 
@@ -51,9 +51,9 @@ public class SentinelHelloCheckActionFactory extends AbstractClusterLeaderAwareH
 
     @Autowired
     public SentinelHelloCheckActionFactory(List<SentinelHelloCollector> collectors, List<SentinelActionController> controllers,
-                                           CheckerConfig checkerConfig, CheckerDbConfig checkerDbConfig, Persistence persistence, MetaCache metaCache) {
+                                           CheckerConfig checkerConfig, CheckerDbConfig checkerDbConfig, PersistenceCache persistenceCache, MetaCache metaCache) {
         this.checkerDbConfig = checkerDbConfig;
-        this.persistence = persistence;
+        this.persistenceCache = persistenceCache;
         this.collectorsByClusterType = ClusterTypeSupporterSeparator.divideByClusterType(collectors);
         this.controllersByClusterType = ClusterTypeSupporterSeparator.divideByClusterType(controllers);
         this.metaCache = metaCache;
@@ -61,7 +61,7 @@ public class SentinelHelloCheckActionFactory extends AbstractClusterLeaderAwareH
 
     @Override
     public SiteLeaderAwareHealthCheckAction create(ClusterHealthCheckInstance instance) {
-        SentinelHelloCheckAction action = new SentinelHelloCheckAction(helloCheckScheduled, instance, helloCheckExecutors, checkerDbConfig, persistence, metaCache, healthCheckInstanceManager);
+        SentinelHelloCheckAction action = new SentinelHelloCheckAction(helloCheckScheduled, instance, helloCheckExecutors, checkerDbConfig, persistenceCache, metaCache, healthCheckInstanceManager);
         ClusterType clusterType = instance.getCheckInfo().getClusterType();
         action.addListeners(collectorsByClusterType.get(clusterType));
         action.addControllers(controllersByClusterType.get(clusterType));
