@@ -127,5 +127,6 @@ public interface ConsoleConfig extends CoreConfig, CheckerConfig, AlertConfig {
 	int getCheckerAckTimeoutMilli();
 
 	long getMigrationTimeoutMilli();
-
+	
+	boolean consoleIsMySelf(String dc);
 }
